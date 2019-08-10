@@ -2,6 +2,7 @@ package run
 
 import (
 	"baby-run/conf"
+	"baby-run/tui"
 	"fmt"
 	"net/http"
 	"sync"
@@ -9,13 +10,16 @@ import (
 )
 
 type Result struct {
+	sync.Mutex               //锁
 	Counter    uint64        //总请求数
 	Duration   time.Duration //总消耗时间
 	ErrCounter uint64        //总错误数
-	sync.Mutex
 }
 
 var BabyRes Result
+var counterChan = make(chan uint64)
+var durationChan = make(chan time.Duration)
+var errCountChan = make(chan uint64)
 
 func Start(c conf.BabyConfig) {
 	for cnum := c.Client; cnum > 0; cnum-- {
@@ -36,9 +40,12 @@ func Start(c conf.BabyConfig) {
 			}
 		}()
 	}
+	var ch = make(chan bool)
+	go tui.LoadingText(ch)
 	select {
 	case <-time.After(time.Duration(int64(c.Times)) * time.Second):
-		break;
+		ch <- true
+		break
 	}
 
 	fmt.Printf("\r== Result ============================================\n")

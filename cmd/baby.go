@@ -3,10 +3,8 @@ package main
 import (
 	"baby-run/conf"
 	"baby-run/run"
-	"baby-run/tui"
 	"flag"
 	"log"
-	"time"
 )
 
 //client:%d   times:%d   url:%s
@@ -22,7 +20,7 @@ func main() {
 		log.Fatal("initialize failed:", err)
 	}
 	var config = conf.Config
-	go tui.LoadingText(time.Now())
+
 	run.Start(config)
 	//duration, err := run.Get(config.Url)
 	//if err != nil {
