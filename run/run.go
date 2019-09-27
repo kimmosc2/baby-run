@@ -4,16 +4,18 @@ import (
 	"baby-run/conf"
 	"baby-run/tui"
 	"fmt"
+	"log"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
 
 type Result struct {
-	sync.Mutex               //锁
-	Counter    uint64        //总请求数
-	Duration   time.Duration //总消耗时间
-	ErrCounter uint64        //总错误数
+	sync.Mutex               // 锁
+	Counter    uint64        // 总请求数
+	Duration   time.Duration // 总消耗时间
+	ErrCounter uint64        // 总错误数
 }
 
 var BabyRes Result
@@ -22,24 +24,48 @@ var durationChan = make(chan time.Duration)
 var errCountChan = make(chan uint64)
 
 func Start(c conf.BabyConfig) {
-	for cnum := c.Client; cnum > 0; cnum-- {
-		go func() {
-			for {
-				if t, ok := Get(c.Url); ok {
-					BabyRes.Lock()
-					BabyRes.Counter++
-					BabyRes.Duration += t
-					BabyRes.Unlock()
-				} else {
-					BabyRes.Lock()
-					BabyRes.Counter++
-					BabyRes.Duration += t
-					BabyRes.ErrCounter++
-					BabyRes.Unlock()
+	if me := strings.ToUpper(c.Method); me == http.MethodGet {
+		for cnum := c.Client; cnum > 0; cnum-- {
+			go func() {
+				for {
+					if t, ok := Get(c.Url); ok {
+						BabyRes.Lock()
+						BabyRes.Counter++
+						BabyRes.Duration += t
+						BabyRes.Unlock()
+					} else {
+						BabyRes.Lock()
+						BabyRes.Counter++
+						BabyRes.Duration += t
+						BabyRes.ErrCounter++
+						BabyRes.Unlock()
+					}
 				}
-			}
-		}()
+			}()
+		}
+	} else if me == http.MethodPost {
+		for cnum := c.Client; cnum > 0; cnum-- {
+			go func() {
+				for {
+					if t, ok := Post(c.Url, c.ContentType, c.Body); ok {
+						BabyRes.Lock()
+						BabyRes.Counter++
+						BabyRes.Duration += t
+						BabyRes.Unlock()
+					} else {
+						BabyRes.Lock()
+						BabyRes.Counter++
+						BabyRes.Duration += t
+						BabyRes.ErrCounter++
+						BabyRes.Unlock()
+					}
+				}
+			}()
+		}
+	} else {
+		log.Fatal("no such method:", c.Method)
 	}
+
 	var ch = make(chan bool)
 	go tui.LoadingText(ch)
 	select {
@@ -64,5 +90,11 @@ func Start(c conf.BabyConfig) {
 func Get(url string) (time.Duration, bool) {
 	start := time.Now()
 	resp, err := http.Get(url)
+	return time.Now().Sub(start), err == nil && resp.StatusCode == http.StatusOK
+}
+
+func Post(url, contentType, body string) (time.Duration, bool) {
+	start := time.Now()
+	resp, err := http.Post(url, contentType, strings.NewReader(body))
 	return time.Now().Sub(start), err == nil && resp.StatusCode == http.StatusOK
 }

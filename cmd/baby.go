@@ -22,6 +22,7 @@ func main() {
 	var config = conf.Config
 
 	run.Start(config)
+
 	//duration, err := run.Get(config.Url)
 	//if err != nil {
 	//	log.Fatal("request error:", err)
